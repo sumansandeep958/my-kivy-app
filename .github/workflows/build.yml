@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Manual Fix)
 
 on:
   push:
@@ -13,17 +13,29 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Free Disk Space
+        # Android builds are large; this prevents "Out of Disk Space" errors
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Install Dependencies
+        # Installs the same tools we used in Google Colab
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          pip3 install --upgrade Cython==0.29.36 virtualenv buildozer
+
       - name: Build with Buildozer
-        # Uses a pre-made action to handle the complex Android setup
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          command: buildozer android debug
-          buildozer_version: stable
-          workdir: .
+        # The 'yes |' part automatically accepts the Android SDK license agreement
+        run: |
+          yes | buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: my-app-apk
-          path: ${{ steps.buildozer.outputs.filename }}
+          # Finds the .apk file automatically in the bin folder
+          path: bin/*.apk
